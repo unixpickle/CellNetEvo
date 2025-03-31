@@ -67,14 +67,14 @@ func applyModel(_ state: BitmapSequence, model: Model) -> (
   for i in 0..<model.config.cellCount {
     let bits = state[i]
     var bitValue: Int = 0
-    for (i, b) in bits.enumerated() {
+    for (j, b) in bits.enumerated() {
       if b {
-        bitValue |= 1 << i
+        bitValue |= 1 << j
       }
     }
     let newBitValue = model.mapping(bitValue)
-    for i in 0..<(model.config.activationCount + model.config.stateCount) {
-      newState[i, 4 + i] = (newBitValue & (1 << i)) != 0
+    for j in 0..<(model.config.activationCount + model.config.stateCount) {
+      newState[i, 4 + j] = (newBitValue & (1 << j)) != 0
     }
     outputs[i, 0] =
       newBitValue & (1 << (model.config.activationCount + model.config.stateCount)) != 0
