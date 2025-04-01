@@ -93,7 +93,7 @@ public struct Model: Sendable {
 
       while result == input {
         // Random swaps
-        for _ in 0..<logRandom(count: result.count, multiplier: 10.0) {
+        for _ in 0..<logRandom(count: result.count) {
           let i1 = Int.random(in: 0..<result.count)
           var i2 = Int.random(in: 0..<(result.count - 1))
           if i2 >= i1 {
@@ -105,7 +105,7 @@ public struct Model: Sendable {
         }
 
         // Random bit flips
-        for _ in 0..<logRandom(count: result.count * outputStateBits, multiplier: 10.0) {
+        for _ in 0..<logRandom(count: result.count * outputStateBits) {
           let idx = Int.random(in: 0..<result.count)
           let bitIdx = Int.random(in: 0..<outputStateBits)
           result[idx] ^= 1 << bitIdx
@@ -128,7 +128,7 @@ public struct Model: Sendable {
 
 }
 
-func logRandom(count: Int, multiplier: Double) -> Int {
+func logRandom(count: Int) -> Int {
   let val = Double.random(in: 0.0..<(log(Double(count))))
-  return Int(exp(val) * multiplier)
+  return Int(exp(val))
 }
