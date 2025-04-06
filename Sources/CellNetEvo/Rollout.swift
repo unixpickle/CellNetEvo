@@ -17,24 +17,23 @@ public func rolloutOnCPU(
   var state = BitmapSequence.zeros(count: model.config.cellCount, dim: model.config.inputStateCount)
   var allOutputs = BitmapSequence.zeros(count: targets.count, dim: targets.dim)
   for i in 0..<examples.count {
-    state = injectInputs(state, inputs: examples[i])
+    injectInputs(&state, inputs: examples[i])
     var outputs: BitmapSequence = BitmapSequence.zeros(count: model.config.cellCount, dim: 1)
     for _ in 0..<rolloutConfig.inferSteps {
-      (state, outputs) = applyModel(state, model: model)
+      outputs = applyModel(&state, model: model)
     }
     for j in 0..<targets.dim {
       allOutputs[i, j] = outputs[j + examples.dim, 0]
     }
-    state = injectTargets(state, inputCount: examples.dim, targets: targets[i])
+    injectTargets(&state, inputCount: examples.dim, targets: targets[i])
     for _ in 0..<rolloutConfig.updateSteps {
-      (state, _) = applyModel(state, model: model)
+      _ = applyModel(&state, model: model)
     }
   }
   return allOutputs
 }
 
-func injectInputs(_ state: BitmapSequence, inputs: [Bool]) -> BitmapSequence {
-  var state = state
+func injectInputs(_ state: inout BitmapSequence, inputs: BitPattern) {
   for (i, x) in inputs.enumerated() {
     state[i, 2] = true
     state[i, 3] = x
@@ -43,11 +42,9 @@ func injectInputs(_ state: BitmapSequence, inputs: [Bool]) -> BitmapSequence {
     state[i, 2] = false
     state[i, 3] = false
   }
-  return state
 }
 
-func injectTargets(_ state: BitmapSequence, inputCount: Int, targets: [Bool]) -> BitmapSequence {
-  var state = state
+func injectTargets(_ state: inout BitmapSequence, inputCount: Int, targets: BitPattern) {
   for (i, x) in targets.enumerated() {
     state[i + inputCount, 0] = true
     state[i + inputCount, 1] = x
@@ -56,12 +53,9 @@ func injectTargets(_ state: BitmapSequence, inputCount: Int, targets: [Bool]) ->
     state[i, 0] = false
     state[i, 1] = false
   }
-  return state
 }
 
-func applyModel(_ state: BitmapSequence, model: Model) -> (
-  newState: BitmapSequence, outputs: BitmapSequence
-) {
+func applyModel(_ state: inout BitmapSequence, model: Model) -> BitmapSequence {
   var newState = state
   var outputs = BitmapSequence.zeros(count: model.config.cellCount, dim: 1)
   for i in 0..<model.config.cellCount {
@@ -79,7 +73,8 @@ func applyModel(_ state: BitmapSequence, model: Model) -> (
     outputs[i, 0] =
       newBitValue & (1 << (model.config.activationCount + model.config.stateCount)) != 0
   }
-  return (newState: permuteActivations(newState, model: model), outputs: outputs)
+  state = permuteActivations(newState, model: model)
+  return outputs
 }
 
 func permuteActivations(_ state: BitmapSequence, model: Model) -> BitmapSequence {
