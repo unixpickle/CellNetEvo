@@ -4,8 +4,18 @@ public struct BitPattern: Sendable {
   private var shortBits: UInt32 = 0
   private var longBits: [Bool]? = nil
 
-  public var asUInt32: UInt32? {
-    longBits == nil ? shortBits : nil
+  public var uint32: UInt32? {
+    get {
+      longBits == nil ? shortBits : nil
+    }
+    set {
+      if let value = newValue {
+        assert(longBits == nil)
+        shortBits = value
+      } else {
+        assert(longBits != nil)
+      }
+    }
   }
 
   public var count: Int {
@@ -20,6 +30,7 @@ public struct BitPattern: Sendable {
   }
 
   init(bitCount: Int, shortBits: UInt32 = 0, longBits: [Bool]? = nil) {
+    assert((longBits == nil) == (bitCount > 32))
     self.bitCount = UInt32(bitCount)
     self.shortBits = shortBits
     self.longBits = longBits
@@ -32,6 +43,19 @@ public struct BitPattern: Sendable {
       }
     }
     return nil
+  }
+
+  public func mask(range: Range<Int>) -> BitPattern {
+    if let longBits = longBits {
+      var newBits = [Bool](repeating: false, count: longBits.count)
+      for i in range {
+        newBits[i] = longBits[i]
+      }
+      return BitPattern(bitCount: count, longBits: longBits)
+    } else {
+      let mask = ((UInt32(1) << range.upperBound) - 1) ^ ((UInt32(1) << range.lowerBound) - 1)
+      return BitPattern(bitCount: count, shortBits: shortBits & mask)
+    }
   }
 
   public subscript(_ i: Int) -> Bool {
@@ -64,6 +88,18 @@ public struct BitPattern: Sendable {
       )
     } else {
       return BitPattern(bitCount: lhs.count, shortBits: lhs.shortBits & rhs.shortBits)
+    }
+  }
+
+  public static func | (lhs: BitPattern, rhs: BitPattern) -> BitPattern {
+    assert(lhs.bitCount == rhs.bitCount)
+    if let lhsBits = lhs.longBits, let rhsBits = rhs.longBits {
+      return BitPattern(
+        bitCount: lhs.count,
+        longBits: zip(lhsBits, rhsBits).map { $0.0 || $0.1 }
+      )
+    } else {
+      return BitPattern(bitCount: lhs.count, shortBits: lhs.shortBits | rhs.shortBits)
     }
   }
 

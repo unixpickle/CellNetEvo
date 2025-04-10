@@ -30,6 +30,7 @@ public func rolloutOnCPU(
     for _ in 0..<rolloutConfig.updateSteps {
       _ = applyModel(&state, &tmp, model: model)
     }
+    clearTargets(&state, inputCount: examples.dim, targets: targets[i])
   }
   return allOutputs
 }
@@ -39,10 +40,6 @@ func injectInputs(_ state: inout BitmapSequence, inputs: BitPattern) {
     state[i, 2] = true
     state[i, 3] = x
   }
-  for i in inputs.count..<state.count {
-    state[i, 2] = false
-    state[i, 3] = false
-  }
 }
 
 func injectTargets(_ state: inout BitmapSequence, inputCount: Int, targets: BitPattern) {
@@ -50,38 +47,38 @@ func injectTargets(_ state: inout BitmapSequence, inputCount: Int, targets: BitP
     state[i + inputCount, 0] = true
     state[i + inputCount, 1] = x
   }
-  for i in (inputCount + targets.count)..<state.count {
-    state[i, 0] = false
-    state[i, 1] = false
+}
+
+func clearTargets(_ state: inout BitmapSequence, inputCount: Int, targets: BitPattern) {
+  for i in 0..<targets.count {
+    state[i + inputCount, 0] = false
+    state[i + inputCount, 1] = false
   }
 }
 
 func applyModel(_ state: inout BitmapSequence, _ tmp: inout BitmapSequence, model: Model)
   -> BitmapSequence
 {
-  tmp.copy(from: state)
+  precondition(state.dim <= 32, "cannot use fast bitwise arithmetic for large states")
+
   var outputs = BitmapSequence.zeros(count: model.config.cellCount, dim: 1)
   for i in 0..<model.config.cellCount {
     let bits = state[i]
-    var bitValue: Int = 0
-    for (j, b) in bits.enumerated() {
-      if b {
-        bitValue |= 1 << j
-      }
-    }
-    let newBitValue = model.mapping(bitValue)
-    for j in 0..<(model.config.activationCount + model.config.stateCount) {
-      tmp[i, 4 + j] = (newBitValue & (1 << j)) != 0
-    }
-    outputs[i, 0] =
-      newBitValue & (1 << (model.config.activationCount + model.config.stateCount)) != 0
+    let stateAndActCount = model.config.activationCount + model.config.stateCount
+    let bitValue = bits.mask(range: 0..<stateAndActCount)
+    let newBitValue = UInt32(model.mapping(Int(bitValue.uint32!)))
+    tmp[i] =
+      state[i].mask(range: 0..<4)
+      | (BitPattern(bitCount: bits.count, shortBits: newBitValue).mask(range: 0..<stateAndActCount)
+        << 4)
+    outputs[i, 0] = newBitValue & (1 << stateAndActCount) != 0
   }
   permuteActivations(input: tmp, output: &state, model: model)
   return outputs
 }
 
 func permuteActivations(input: BitmapSequence, output: inout BitmapSequence, model: Model) {
-  output.copy(from: input)
+  // NOTE: input and output should already have the same input/target fields
   for i in 0..<model.config.activationCount {
     for (dst, src) in model.permutation.mappingsPerAct[
       (i * model.config.cellCount)..<((i + 1) * model.config.cellCount)
