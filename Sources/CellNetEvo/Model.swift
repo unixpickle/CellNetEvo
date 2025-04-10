@@ -8,7 +8,11 @@ public struct Model: Sendable {
     public let cellCount: Int
 
     public var inputStateCount: Int {
-      1 << (activationCount + stateCount + 4)
+      1 << inputStateBits
+    }
+
+    public var inputStateBits: Int {
+      activationCount + stateCount + 4
     }
 
     public var outputStateCount: Int {

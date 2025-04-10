@@ -1,26 +1,26 @@
 public struct BitPattern: Sendable {
-  public let bitCount: Int
+  private let bitCount: UInt32
 
-  var shortBits: UInt32 = 0
-  var longBits: [Bool]? = nil
+  private var shortBits: UInt32 = 0
+  private var longBits: [Bool]? = nil
 
   public var asUInt32: UInt32? {
     longBits == nil ? shortBits : nil
   }
 
   public var count: Int {
-    bitCount
+    Int(bitCount)
   }
 
   public init(bitCount: Int) {
-    self.bitCount = bitCount
+    self.bitCount = UInt32(bitCount)
     if bitCount > 32 {
       longBits = [Bool](repeating: false, count: bitCount)
     }
   }
 
   init(bitCount: Int, shortBits: UInt32 = 0, longBits: [Bool]? = nil) {
-    self.bitCount = bitCount
+    self.bitCount = UInt32(bitCount)
     self.shortBits = shortBits
     self.longBits = longBits
   }
@@ -59,38 +59,40 @@ public struct BitPattern: Sendable {
     assert(lhs.bitCount == rhs.bitCount)
     if let lhsBits = lhs.longBits, let rhsBits = rhs.longBits {
       return BitPattern(
-        bitCount: lhs.bitCount,
+        bitCount: lhs.count,
         longBits: zip(lhsBits, rhsBits).map { $0.0 && $0.1 }
       )
     } else {
-      return BitPattern(bitCount: lhs.bitCount, shortBits: lhs.shortBits & rhs.shortBits)
+      return BitPattern(bitCount: lhs.count, shortBits: lhs.shortBits & rhs.shortBits)
     }
   }
 
   public static func >> (lhs: BitPattern, rhs: Int) -> BitPattern {
     if let lhsBits = lhs.longBits {
-      var newBits = [Bool](repeating: false, count: lhs.bitCount)
-      if rhs < lhs.bitCount {
+      var newBits = [Bool](repeating: false, count: lhs.count)
+      if rhs < lhs.count {
         newBits.replaceSubrange(
-          (lhs.bitCount - rhs)..., with: lhsBits[..<(lhs.bitCount - rhs)])
+          (lhs.count - rhs)..., with: lhsBits[..<(lhs.count - rhs)])
       }
-      return BitPattern(bitCount: lhs.bitCount, longBits: newBits)
+      return BitPattern(bitCount: lhs.count, longBits: newBits)
     } else {
-      return BitPattern(bitCount: lhs.bitCount, shortBits: lhs.shortBits >> rhs)
+      return BitPattern(bitCount: lhs.count, shortBits: lhs.shortBits >> rhs)
     }
   }
 
   public static func << (lhs: BitPattern, rhs: Int) -> BitPattern {
     if let lhsBits = lhs.longBits {
-      var newBits = [Bool](repeating: false, count: lhs.bitCount)
-      if rhs < lhs.bitCount {
+      var newBits = [Bool](repeating: false, count: lhs.count)
+      if rhs < lhs.count {
         newBits.replaceSubrange(
-          (lhs.bitCount - rhs)..., with: lhsBits[..<(lhs.bitCount - rhs)])
+          (lhs.count - rhs)...,
+          with: lhsBits[..<(lhs.count - rhs)]
+        )
       }
-      return BitPattern(bitCount: lhs.bitCount, longBits: newBits)
+      return BitPattern(bitCount: lhs.count, longBits: newBits)
     } else {
-      let mask = UInt32(0xffff_ffff) >> (32 - lhs.bitCount)
-      return BitPattern(bitCount: lhs.bitCount, shortBits: mask & (lhs.shortBits << rhs))
+      let mask = UInt32(0xffff_ffff) >> (32 - lhs.count)
+      return BitPattern(bitCount: lhs.count, shortBits: mask & (lhs.shortBits << rhs))
     }
   }
 }
@@ -112,7 +114,7 @@ public struct BitmapSequence: Sendable {
   var values: [BitPattern]
 
   public init(count: Int, values: [BitPattern], dim: Int? = nil) {
-    self.dim = dim ?? values[0].bitCount
+    self.dim = dim ?? values[0].count
     self.count = count
     self.values = values
   }
@@ -123,6 +125,10 @@ public struct BitmapSequence: Sendable {
       values: [BitPattern](repeating: BitPattern(bitCount: dim), count: dim * count),
       dim: dim
     )
+  }
+
+  mutating public func copy(from: BitmapSequence) {
+    values.replaceSubrange(0..<values.count, with: from.values)
   }
 
   public subscript(_ i: Int) -> BitPattern {

@@ -14,20 +14,21 @@ public func rolloutOnCPU(
   targets: BitmapSequence,
   model: Model
 ) -> BitmapSequence {
-  var state = BitmapSequence.zeros(count: model.config.cellCount, dim: model.config.inputStateCount)
+  var state = BitmapSequence.zeros(count: model.config.cellCount, dim: model.config.inputStateBits)
+  var tmp = BitmapSequence.zeros(count: model.config.cellCount, dim: model.config.inputStateBits)
   var allOutputs = BitmapSequence.zeros(count: targets.count, dim: targets.dim)
   for i in 0..<examples.count {
     injectInputs(&state, inputs: examples[i])
     var outputs: BitmapSequence = BitmapSequence.zeros(count: model.config.cellCount, dim: 1)
     for _ in 0..<rolloutConfig.inferSteps {
-      outputs = applyModel(&state, model: model)
+      outputs = applyModel(&state, &tmp, model: model)
     }
     for j in 0..<targets.dim {
       allOutputs[i, j] = outputs[j + examples.dim, 0]
     }
     injectTargets(&state, inputCount: examples.dim, targets: targets[i])
     for _ in 0..<rolloutConfig.updateSteps {
-      _ = applyModel(&state, model: model)
+      _ = applyModel(&state, &tmp, model: model)
     }
   }
   return allOutputs
@@ -55,8 +56,10 @@ func injectTargets(_ state: inout BitmapSequence, inputCount: Int, targets: BitP
   }
 }
 
-func applyModel(_ state: inout BitmapSequence, model: Model) -> BitmapSequence {
-  var newState = state
+func applyModel(_ state: inout BitmapSequence, _ tmp: inout BitmapSequence, model: Model)
+  -> BitmapSequence
+{
+  tmp.copy(from: state)
   var outputs = BitmapSequence.zeros(count: model.config.cellCount, dim: 1)
   for i in 0..<model.config.cellCount {
     let bits = state[i]
@@ -68,23 +71,22 @@ func applyModel(_ state: inout BitmapSequence, model: Model) -> BitmapSequence {
     }
     let newBitValue = model.mapping(bitValue)
     for j in 0..<(model.config.activationCount + model.config.stateCount) {
-      newState[i, 4 + j] = (newBitValue & (1 << j)) != 0
+      tmp[i, 4 + j] = (newBitValue & (1 << j)) != 0
     }
     outputs[i, 0] =
       newBitValue & (1 << (model.config.activationCount + model.config.stateCount)) != 0
   }
-  state = permuteActivations(newState, model: model)
+  permuteActivations(input: tmp, output: &state, model: model)
   return outputs
 }
 
-func permuteActivations(_ state: BitmapSequence, model: Model) -> BitmapSequence {
-  var output = state
+func permuteActivations(input: BitmapSequence, output: inout BitmapSequence, model: Model) {
+  output.copy(from: input)
   for i in 0..<model.config.activationCount {
     for (dst, src) in model.permutation.mappingsPerAct[
       (i * model.config.cellCount)..<((i + 1) * model.config.cellCount)
     ].enumerated() {
-      output[dst, i + 4] = state[src, i + 4]
+      output[dst, i + 4] = input[src, i + 4]
     }
   }
-  return output
 }

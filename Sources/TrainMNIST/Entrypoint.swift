@@ -74,6 +74,7 @@ import MNIST
       population = population.mutations(populationCount: populationCount)
       let solutions = population.solutions
 
+      let startTime = DispatchTime.now()
       let fitnesses = SyncObj([Double](repeating: 0.0, count: population.solutions.count))
       DispatchQueue.global(qos: .userInitiated).sync {
         DispatchQueue.concurrentPerform(iterations: solutions.count) { index in
@@ -98,6 +99,8 @@ import MNIST
         fitnesses: finalFitnesses,
         selectionCount: selectionCount
       )
+      let stopTime = DispatchTime.now()
+      let duration = Float(stopTime.uptimeNanoseconds - startTime.uptimeNanoseconds) / 1e9
 
       step += 1
 
@@ -112,7 +115,7 @@ import MNIST
       }
 
       print(
-        "step \(step): fitness=\(finalFitnesses.reduce(0.0, +) / Double(finalFitnesses.count))"
+        "step \(step): fitness=\(finalFitnesses.reduce(0.0, +) / Double(finalFitnesses.count)) step_time=\(duration)"
       )
     }
   }
