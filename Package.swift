@@ -21,6 +21,10 @@ let package = Package(
         .product(name: "MNIST", package: "honeycrisp-examples")
       ]
     ),
+    .testTarget(
+      name: "CellNetEvoTest",
+      dependencies: ["CellNetEvo"]
+    ),
     .executableTarget(
       name: "TrainMNIST",
       dependencies: [
