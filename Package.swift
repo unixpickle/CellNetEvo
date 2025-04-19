@@ -26,6 +26,13 @@ let package = Package(
       dependencies: ["CellNetEvo"]
     ),
     .executableTarget(
+      name: "TrainLogic",
+      dependencies: [
+        "CellNetEvo",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+      ]
+    ),
+    .executableTarget(
       name: "TrainMNIST",
       dependencies: [
         "CellNetEvo",

@@ -1,5 +1,5 @@
 /// Compute the accuracy of the predictions, assuming that probability is
-// evenly distributed for every 1 in the predictions.
+/// evenly distributed for every 1 in the predictions.
 public func accuracyScore(predictions: BitmapSequence, targets: BitmapSequence) -> Double {
   var sum = 0.0
   var divisor = 0.0
@@ -14,6 +14,21 @@ public func accuracyScore(predictions: BitmapSequence, targets: BitmapSequence) 
     let target = targets[i].firstIndex(of: true)!
     if predictions[i, target] {
       sum += 1 / oneCount
+    }
+  }
+  return sum / divisor
+}
+
+/// Compute the bitwise overlap fraction.
+public func overlapScore(predictions: BitmapSequence, targets: BitmapSequence) -> Double {
+  var sum = 0.0
+  var divisor = 0.0
+  for i in 0..<predictions.count {
+    divisor += Double(predictions.dim)
+    for j in 0..<predictions.dim {
+      if predictions[i, j] == targets[i, j] {
+        sum += 1.0
+      }
     }
   }
   return sum / divisor
